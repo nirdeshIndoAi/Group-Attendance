@@ -1,0 +1,22 @@
+name: face_recognition_sdk
+description: Flutter package for group photo face recognition with automatic face detection, cropping, enhancement, and user matching.
+version: 1.0.0
+publish_to: 'none'
+
+environment:
+  sdk: ^3.7.2
+
+dependencies:
+  flutter:
+    sdk: flutter
+  provider: ^6.1.2
+  google_mlkit_face_detection: ^0.10.0
+  image_picker: ^1.0.7
+  image: ^4.1.7
+  path_provider: ^2.1.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
