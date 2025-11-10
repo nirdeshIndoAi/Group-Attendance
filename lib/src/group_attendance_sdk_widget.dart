@@ -450,9 +450,9 @@ class _GroupAttendanceSDKState extends State<GroupAttendanceSDK> {
     double norm2 = 0.0;
 
     for (int i = 0; i < minLength; i++) {
-      dotProduct += template1[i] * template2[i];
-      norm1 += template1[i] * template1[i];
-      norm2 += template2[i] * template2[i];
+      dotProduct += template1[i].toDouble() * template2[i].toDouble();
+      norm1 += template1[i].toDouble() * template1[i].toDouble();
+      norm2 += template2[i].toDouble() * template2[i].toDouble();
     }
 
     double cosineSimilarity = 0.0;
@@ -462,11 +462,11 @@ class _GroupAttendanceSDKState extends State<GroupAttendanceSDK> {
 
     double sumSquaredDiff = 0.0;
     for (int i = 0; i < minLength; i++) {
-      double diff = template1[i] - template2[i];
+      double diff = (template1[i] - template2[i]).toDouble();
       sumSquaredDiff += diff * diff;
     }
     double euclideanDistance = sqrt(sumSquaredDiff);
-    double maxPossibleDistance = sqrt(minLength * 255 * 255);
+    double maxPossibleDistance = sqrt(minLength.toDouble() * 255 * 255);
     double normalizedEuclidean = 1.0 - (euclideanDistance / maxPossibleDistance);
 
     int exactMatches = 0;
@@ -475,13 +475,13 @@ class _GroupAttendanceSDKState extends State<GroupAttendanceSDK> {
         exactMatches++;
       }
     }
-    double exactMatchRatio = exactMatches / minLength;
+    double exactMatchRatio = exactMatches / minLength.toDouble();
 
     double mean1 = 0.0;
     double mean2 = 0.0;
     for (int i = 0; i < minLength; i++) {
-      mean1 += template1[i];
-      mean2 += template2[i];
+      mean1 += template1[i].toDouble();
+      mean2 += template2[i].toDouble();
     }
     mean1 /= minLength;
     mean2 /= minLength;
@@ -491,8 +491,8 @@ class _GroupAttendanceSDKState extends State<GroupAttendanceSDK> {
     double variance2 = 0.0;
 
     for (int i = 0; i < minLength; i++) {
-      double diff1 = template1[i] - mean1;
-      double diff2 = template2[i] - mean2;
+      double diff1 = template1[i].toDouble() - mean1;
+      double diff2 = template2[i].toDouble() - mean2;
       covariance += diff1 * diff2;
       variance1 += diff1 * diff1;
       variance2 += diff2 * diff2;
