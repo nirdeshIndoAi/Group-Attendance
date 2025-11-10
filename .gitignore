@@ -35,3 +35,14 @@ example/.flutter-plugins-dependencies
 example/.packages
 example/build/
 example/pubspec.lock
+
+# Documentation files
+README.md
+QUICKSTART.md
+USAGE_GUIDE.md
+ARCHITECTURE.md
+PACKAGE_STRUCTURE.md
+PRODUCTION_CHECKLIST.md
+CHANGELOG.md
+*.md
+

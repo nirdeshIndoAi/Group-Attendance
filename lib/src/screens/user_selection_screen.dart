@@ -1,15 +1,14 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
+import '../face_recognition_view_model.dart';
 import '../models.dart';
 import 'result_screen.dart';
 
 class UserSelectionScreen extends StatefulWidget {
-  final List<File> croppedFaces;
-
+  final FaceRecognitionViewModel parentViewModel;
+  
   const UserSelectionScreen({
     Key? key,
-    required this.croppedFaces,
+    required this.parentViewModel,
   }) : super(key: key);
 
   @override
@@ -17,217 +16,193 @@ class UserSelectionScreen extends StatefulWidget {
 }
 
 class _UserSelectionScreenState extends State<UserSelectionScreen> {
-  Map<int, String> faceNames = {};
+  final TextEditingController _nameController = TextEditingController();
+  late FaceRecognitionViewModel viewModel;
 
-  Future<void> _assignName(int index) async {
-    final TextEditingController controller = TextEditingController();
+  @override
+  void initState() {
+    super.initState();
+    viewModel = widget.parentViewModel;
+  }
 
-    await showDialog(
+  @override
+  void dispose() {
+    _nameController.dispose();
+    super.dispose();
+  }
+
+  void _showAddUserDialog(BuildContext context) {
+    showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Assign Name'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (index < widget.croppedFaces.length)
-              Image.file(
-                widget.croppedFaces[index],
-                height: 150,
-                width: 150,
-                fit: BoxFit.cover,
-              ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: controller,
-              decoration: const InputDecoration(
-                labelText: 'Enter Name',
-                border: OutlineInputBorder(),
-              ),
-              autofocus: true,
-            ),
-          ],
+        title: const Text('Add User'),
+        content: TextField(
+          controller: _nameController,
+          decoration: const InputDecoration(
+            labelText: 'Enter Name',
+            border: OutlineInputBorder(),
+          ),
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
+            onPressed: () {
+              Navigator.pop(dialogContext);
+              _nameController.clear();
+            },
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            onPressed: () {
-              if (controller.text.trim().isNotEmpty) {
-                setState(() {
-                  faceNames[index] = controller.text.trim();
-                });
+            onPressed: () async {
+              if (_nameController.text.trim().isNotEmpty) {
                 Navigator.pop(dialogContext);
+                await viewModel.addUserReference(_nameController.text.trim(), context);
+                setState(() {});
+                _nameController.clear();
               }
             },
-            child: const Text('Assign'),
+            child: const Text('Upload Photo'),
           ),
         ],
       ),
     );
   }
 
-  void _proceedToResults() {
-    final results = <RecognitionResult>[];
-
-    for (int i = 0; i < widget.croppedFaces.length; i++) {
-      final name = faceNames[i] ?? 'Unknown';
+  Future<List<RecognitionResult>> _convertMatchResults(List<FaceMatchResult> matchResults) async {
+    List<RecognitionResult> results = [];
+    
+    for (var result in matchResults) {
       results.add(RecognitionResult(
-        isMatched: faceNames.containsKey(i),
-        name: name,
-        croppedImagePath: widget.croppedFaces[i].path,
-        similarity: null,
+        isMatched: result.isMatched,
+        name: result.matchedUserName ?? 'Unknown',
+        croppedImagePath: result.croppedFace.path,
+        similarity: result.similarity,
       ));
     }
-
-    Navigator.pop(context, results);
+    
+    return results;
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Assign Names to Faces'),
+        title: const Text('Add Users to Recognize'),
         elevation: 2,
       ),
-      body: widget.croppedFaces.isEmpty
+      body: viewModel.userReferences.isEmpty
           ? Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.face, size: 100, color: Colors.grey[400]),
+                  Icon(
+                    Icons.person_add_alt_1,
+                    size: 100,
+                    color: Colors.grey[400],
+                  ),
                   const SizedBox(height: 20),
                   Text(
-                    'No faces detected',
-                    style: TextStyle(fontSize: 18, color: Colors.grey[600]),
+                    'No users added yet',
+                    style: TextStyle(
+                      fontSize: 18,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    'Tap + button to add users',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey[500],
+                    ),
                   ),
                 ],
               ),
             )
-          : GridView.builder(
-              padding: const EdgeInsets.all(16),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                crossAxisSpacing: 16,
-                mainAxisSpacing: 16,
-                childAspectRatio: 0.8,
-              ),
-              itemCount: widget.croppedFaces.length,
-              itemBuilder: (context, index) {
-                final hasName = faceNames.containsKey(index);
-                return GestureDetector(
-                  onTap: () => _assignName(index),
-                  child: Card(
-                    elevation: 4,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      side: BorderSide(
-                        color: hasName ? Colors.green : Colors.grey.shade300,
-                        width: 2,
-                      ),
+          : ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: viewModel.userReferences.length,
+            itemBuilder: (context, index) {
+              final user = viewModel.userReferences[index];
+              return Card(
+                margin: const EdgeInsets.only(bottom: 12),
+                child: ListTile(
+                  leading: CircleAvatar(
+                    radius: 30,
+                    backgroundImage: FileImage(user.photo),
+                  ),
+                  title: Text(
+                    user.name,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Expanded(
-                          child: ClipRRect(
-                            borderRadius: const BorderRadius.vertical(
-                              top: Radius.circular(12),
-                            ),
-                            child: Image.file(
-                              widget.croppedFaces[index],
-                              fit: BoxFit.cover,
-                            ),
-                          ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: hasName ? Colors.green.shade50 : Colors.grey.shade100,
-                            borderRadius: const BorderRadius.vertical(
-                              bottom: Radius.circular(12),
-                            ),
-                          ),
-                          child: Column(
-                            children: [
-                              Text(
-                                faceNames[index] ?? 'Tap to assign name',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 14,
-                                  color: hasName ? Colors.green.shade900 : Colors.grey.shade600,
-                                ),
-                                textAlign: TextAlign.center,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              if (hasName)
-                                const SizedBox(height: 4),
-                              if (hasName)
-                                Icon(
-                                  Icons.check_circle,
-                                  color: Colors.green,
-                                  size: 20,
-                                ),
-                            ],
-                          ),
-                        ),
-                      ],
+                  ),
+                  subtitle: Text(
+                    user.faceTemplate != null ? 'Template extracted' : 'No template',
+                    style: TextStyle(
+                      color: user.faceTemplate != null ? Colors.green : Colors.red,
+                      fontSize: 12,
                     ),
+                  ),
+                    trailing: IconButton(
+                      icon: const Icon(Icons.delete, color: Colors.red),
+                      onPressed: () {
+                        viewModel.removeUserReference(index);
+                        setState(() {});
+                      },
+                    ),
+                ),
+              );
+            },
+          ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _showAddUserDialog(context),
+        child: const Icon(Icons.add),
+      ),
+      bottomNavigationBar: viewModel.userReferences.isEmpty
+          ? const SizedBox.shrink()
+          : Container(
+            padding: const EdgeInsets.all(16),
+            child: ElevatedButton(
+              onPressed: () async {
+                showDialog(
+                  context: context,
+                  barrierDismissible: false,
+                  builder: (context) => const Center(
+                    child: CircularProgressIndicator(),
                   ),
                 );
+
+                await viewModel.performFaceRecognition();
+
+                Navigator.pop(context);
+
+                final results = await _convertMatchResults(viewModel.matchResults);
+
+                final shouldReturn = await Navigator.push<bool>(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => ResultScreen(results: results),
+                  ),
+                );
+
+                if (shouldReturn == true) {
+                  Navigator.pop(context, results);
+                }
               },
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: const Text(
+                'Submit & Recognize',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
             ),
-      bottomNavigationBar: widget.croppedFaces.isNotEmpty
-          ? Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.grey.shade300,
-                    offset: const Offset(0, -2),
-                    blurRadius: 4,
-                  ),
-                ],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    'Assigned: ${faceNames.length} / ${widget.croppedFaces.length}',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 50,
-                    child: ElevatedButton(
-                      onPressed: faceNames.isEmpty ? null : _proceedToResults,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      child: const Text(
-                        'Proceed',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            )
-          : const SizedBox.shrink(),
+          ),
     );
   }
 }
+
