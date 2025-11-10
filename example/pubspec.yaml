@@ -13,7 +13,6 @@ dependencies:
   face_recognition_sdk:
     path: ../
   
-  provider: ^6.1.2
   image_picker: ^1.0.7
 
 dev_dependencies:
