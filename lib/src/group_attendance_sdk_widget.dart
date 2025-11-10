@@ -8,7 +8,7 @@ import 'widgets/primary_button.dart';
 import 'screens/user_selection_screen.dart';
 import 'models.dart';
 
-class GroupAttendanceSDK extends StatefulWidget {
+class GroupAttendanceSDK extends StatelessWidget {
   final List<SDKUserReference>? userReferences;
   final bool isDemo;
   final Function(List<RecognitionResult>)? onComplete;
@@ -21,10 +21,35 @@ class GroupAttendanceSDK extends StatefulWidget {
   }) : super(key: key);
 
   @override
-  State<GroupAttendanceSDK> createState() => _GroupAttendanceSDKState();
+  Widget build(BuildContext context) {
+    return ChangeNotifierProvider(
+      create: (_) => FaceRecognitionViewModel(),
+      child: _GroupAttendanceSDKContent(
+        isDemo: isDemo,
+        userReferences: userReferences,
+        onComplete: onComplete,
+      ),
+    );
+  }
 }
 
-class _GroupAttendanceSDKState extends State<GroupAttendanceSDK> {
+class _GroupAttendanceSDKContent extends StatefulWidget {
+  final List<SDKUserReference>? userReferences;
+  final bool isDemo;
+  final Function(List<RecognitionResult>)? onComplete;
+
+  const _GroupAttendanceSDKContent({
+    Key? key,
+    required this.isDemo,
+    this.userReferences,
+    this.onComplete,
+  }) : super(key: key);
+
+  @override
+  State<_GroupAttendanceSDKContent> createState() => _GroupAttendanceSDKContentState();
+}
+
+class _GroupAttendanceSDKContentState extends State<_GroupAttendanceSDKContent> {
   bool _isInitializing = false;
 
   @override
@@ -354,4 +379,3 @@ class _GroupAttendanceSDKState extends State<GroupAttendanceSDK> {
     );
   }
 }
-
