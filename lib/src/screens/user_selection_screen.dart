@@ -75,7 +75,6 @@ class _UserSelectionScreenState extends State<UserSelectionScreen> {
         isMatched: result.isMatched,
         name: result.matchedUserName ?? 'Unknown',
         croppedImagePath: result.croppedFace.path,
-        similarity: result.similarity,
       ));
     }
     
@@ -144,17 +143,17 @@ class _UserSelectionScreenState extends State<UserSelectionScreen> {
                       fontSize: 12,
                     ),
                   ),
-                    trailing: IconButton(
-                      icon: const Icon(Icons.delete, color: Colors.red),
-                      onPressed: () {
-                        viewModel.removeUserReference(index);
+                  trailing: IconButton(
+                    icon: const Icon(Icons.delete, color: Colors.red),
+                    onPressed: () {
+                      viewModel.removeUserReference(index);
                         setState(() {});
-                      },
-                    ),
+                    },
+                  ),
                 ),
-              );
-            },
-          ),
+          );
+        },
+      ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showAddUserDialog(context),
         child: const Icon(Icons.add),
@@ -201,7 +200,7 @@ class _UserSelectionScreenState extends State<UserSelectionScreen> {
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
             ),
-          ),
+      ),
     );
   }
 }

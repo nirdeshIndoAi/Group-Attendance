@@ -39,29 +39,12 @@ flutter pub get
 
 ## Usage
 
-### 1. Setup Provider
-
-Wrap your app with the `FaceRecognitionViewModel` provider:
-
-```dart
-import 'package:provider/provider.dart';
-import 'package:face_recognition_sdk/face_recognition_sdk.dart';
-
-void main() {
-  runApp(
-    ChangeNotifierProvider(
-      create: (_) => FaceRecognitionViewModel(),
-      child: MyApp(),
-    ),
-  );
-}
-```
-
-### 2. Demo Mode (Manual User Selection)
+### 1. Demo Mode (Manual User Selection)
 
 ```dart
 GroupAttendanceSDK(
   isDemo: true,
+  licenseKey: 'REPLACE_WITH_LICENSE_KEY',
   onComplete: (results) {
     for (var result in results) {
       print('Name: ${result.name}');
@@ -72,7 +55,7 @@ GroupAttendanceSDK(
 )
 ```
 
-### 3. Production Mode (Automatic Face Recognition)
+### 2. Production Mode (Automatic Face Recognition)
 
 ```dart
 import 'dart:typed_data';
@@ -94,11 +77,11 @@ List<SDKUserReference> userReferences = [
 GroupAttendanceSDK(
   isDemo: false,
   userReferences: userReferences,
+  licenseKey: 'REPLACE_WITH_LICENSE_KEY',
   onComplete: (results) {
     for (var result in results) {
       print('Name: ${result.name}');
       print('Matched: ${result.isMatched}');
-      print('Similarity: ${result.similarity}');
       print('Image: ${result.croppedImagePath}');
     }
   },
@@ -112,6 +95,7 @@ GroupAttendanceSDK(
 Main widget component for face recognition.
 
 **Parameters:**
+- `licenseKey` (String, required): License key issued for your app ID (based on host package name)
 - `isDemo` (bool, required): Enable demo mode for manual selection
 - `userReferences` (List<SDKUserReference>?, optional): List of reference users for recognition (required if `isDemo` is false)
 - `onComplete` (Function(List<RecognitionResult>)?, optional): Callback with recognition results
@@ -132,7 +116,6 @@ Model for face recognition results.
 - `isMatched` (bool): Whether face matched a reference user
 - `name` (String): Matched user's name or "Unknown"
 - `croppedImagePath` (String): Path to cropped face image
-- `similarity` (double?): Similarity score (0.0 to 1.0)
 
 ### FaceRecognitionViewModel
 
@@ -185,13 +168,23 @@ viewModel.minimumConfidenceGap = 0.08;
 - iOS: 12.0+
 - Android: API 21+
 
+## License Validation
+
+- The SDK uses `package_info_plus` to read the host app ID.
+- License validation is performed via `https://classes-api.indoai.co/api/employee/validatekey`.
+- A quick connectivity check (`https://www.google.com`) runs before every online validation.
+- Successful validations are cached locally with `shared_preferences` for offline use.
+- Whenever the app returns to the foreground and the network is available, the SDK re-validates the key automatically.
+
 ## Dependencies
 
-- `provider`: State management
 - `google_mlkit_face_detection`: Face detection
 - `image_picker`: Image selection
 - `image`: Image processing
 - `path_provider`: File system access
+- `http`: Network calls for license validation
+- `package_info_plus`: Host application metadata
+- `shared_preferences`: Offline cache for license status
 
 ## License
 

@@ -125,16 +125,6 @@ class ResultScreen extends StatelessWidget {
                                   ),
                                 ),
                               ],
-                              if (result.similarity != null) ...[
-                                const SizedBox(height: 4),
-                                Text(
-                                  'Similarity: ${(result.similarity! * 100).toStringAsFixed(1)}%',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.grey[600],
-                                  ),
-                                ),
-                              ],
                             ],
                           ),
                         ),

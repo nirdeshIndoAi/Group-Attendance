@@ -9,12 +9,11 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  
   face_recognition_sdk:
     path: ../
-  
-  provider: ^6.1.2
   image_picker: ^1.0.7
+  package_info_plus: ^8.0.0
+  shared_preferences: ^2.2.3
 
 dev_dependencies:
   flutter_test:
