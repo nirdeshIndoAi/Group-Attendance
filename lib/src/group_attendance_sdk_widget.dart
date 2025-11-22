@@ -1,8 +1,6 @@
-import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -10,6 +8,9 @@ import 'face_recognition_view_model.dart';
 import 'widgets/primary_button.dart';
 import 'screens/user_selection_screen.dart';
 import 'models.dart';
+import 'native/native_bridge.dart';
+import 'native/endpoint_encryption.dart';
+import 'package:http/http.dart' as http;
 
 class GroupAttendanceSDK extends StatefulWidget {
   final List<SDKUserReference>? userReferences;
@@ -35,12 +36,16 @@ class _GroupAttendanceSDKState extends State<GroupAttendanceSDK> with WidgetsBin
   static const _licenseAppIdKey = 'ga_sdk_license_app_id';
   static const _licenseValidatedAtKey = 'ga_sdk_license_validated_at';
   static const _licenseEndpoint = 'https://classes-api.indoai.co/api/employee/validatekey';
+  static const _integrityChallenge = 'ga_sdk_integrity_v1';
+  static const _integrityExpectedSignature = 'KEkoetaYxpjbSD1UydnUDn0648ohgzpJcqDAMnv/IJc=';
 
   bool _isInitializing = false;
   bool _isCheckingLicense = true;
   bool _isLicenseValid = false;
   bool _licenseRequestInFlight = false;
   bool _hasInitializedReferences = false;
+  bool _integrityVerified = false;
+  bool isTampered = false;
   String? _licenseError;
 
   late FaceRecognitionViewModel viewModel;
@@ -74,6 +79,17 @@ class _GroupAttendanceSDKState extends State<GroupAttendanceSDK> with WidgetsBin
       _isCheckingLicense = true;
     });
 
+    final integrityOk = await _ensureIntegrity();
+    
+    if (!integrityOk) {
+      if (mounted) {
+        setState(() {
+          _isCheckingLicense = false;
+        });
+      }
+      return;
+    }
+
     await _loadPackageInfo();
     await _loadCachedLicenseState();
 
@@ -82,6 +98,7 @@ class _GroupAttendanceSDKState extends State<GroupAttendanceSDK> with WidgetsBin
       _attemptBackgroundValidation();
     } else {
       final hasInternet = await _hasInternetConnection();
+      
       if (hasInternet) {
         await _validateLicenseOnline(showDialogOnFail: true, skipInternetCheck: true);
       } else {
@@ -139,6 +156,11 @@ class _GroupAttendanceSDKState extends State<GroupAttendanceSDK> with WidgetsBin
       return;
     }
 
+    final integrityOk = await _ensureIntegrity();
+    if (!integrityOk) {
+      return;
+    }
+
     _licenseRequestInFlight = true;
     try {
       if (!skipInternetCheck) {
@@ -158,19 +180,29 @@ class _GroupAttendanceSDKState extends State<GroupAttendanceSDK> with WidgetsBin
         }
         return;
       }
+      
+      final encryptedEndpoint = EndpointEncryption.encrypt(_licenseEndpoint);
+      final isValid = await NativeSecurityBridge.validateLicense(
+        licenseKey: widget.licenseKey,
+        appId: appId,
+        endpoint: encryptedEndpoint,
+      );
+      
+      if (!isValid) {
+        final integrityCheck = await NativeSecurityBridge.fetchIntegritySignature(_integrityChallenge);
+        
+        if (integrityCheck == 'TAMPERED' || integrityCheck != _integrityExpectedSignature) {
+          isTampered = true;
+          if (mounted) {
+            setState(() {
+              _isLicenseValid = false;
+              _licenseError = 'License validation failed. SDK integrity compromised.';
+            });
+          }
+        }
+      }
 
-      final response = await http
-          .post(
-        Uri.parse(_licenseEndpoint),
-        headers: {
-          'Accept': '*/*',
-          'User-Agent': 'GroupAttendanceSDK/1.0.0',
-          'Api-Key': widget.licenseKey,
-        },
-        body: {'app_id': appId},
-      )
-          .timeout(const Duration(seconds: 15));
-      if (response.statusCode == 200 && _isResponseValid(response.body)) {
+      if (isValid) {
         await _cacheLicenseState(appId);
         if (mounted) {
           setState(() {
@@ -209,35 +241,6 @@ class _GroupAttendanceSDKState extends State<GroupAttendanceSDK> with WidgetsBin
     }
   }
 
-  bool _isResponseValid(String body) {
-    try {
-      final decoded = jsonDecode(body);
-      if (decoded is Map<String, dynamic>) {
-        final successKeys = [
-          'success',
-          'status',
-          'valid',
-          'is_valid',
-          'authorized',
-        ];
-        for (final key in successKeys) {
-          if (decoded[key] == true) {
-            return true;
-          }
-        }
-        final message = decoded['message']?.toString().toLowerCase();
-        if (message != null && message.contains('valid')) {
-          return true;
-        }
-      }
-    } catch (_) {
-      if (body.toLowerCase().contains('valid')) {
-        return true;
-      }
-    }
-    return false;
-  }
-
   Future<bool> _hasInternetConnection() async {
     try {
       final response = await http
@@ -256,6 +259,52 @@ class _GroupAttendanceSDKState extends State<GroupAttendanceSDK> with WidgetsBin
 
   String _currentAppId() {
     return _packageInfo?.packageName ?? '';
+  }
+
+  Future<bool> _ensureIntegrity() async {
+    if (isTampered) {
+      return false;
+    }
+
+    if (_integrityVerified) {
+      return true;
+    }
+
+    try {
+      final signature = await NativeSecurityBridge.fetchIntegritySignature(_integrityChallenge);
+      
+      if (signature == 'TAMPERED' || signature == null) {
+        isTampered = true;
+        if (mounted) {
+          setState(() {
+            _licenseError = 'SDK integrity check failed.';
+            _isLicenseValid = false;
+          });
+        }
+        return false;
+      }
+
+      final matches = signature == _integrityExpectedSignature;
+      
+      if (!matches && mounted) {
+        isTampered = true;
+        setState(() {
+          _licenseError = 'SDK integrity check failed.';
+          _isLicenseValid = false;
+        });
+      } else if (matches) {
+        _integrityVerified = true;
+      }
+      return matches;
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _licenseError = 'SDK integrity verification unavailable.';
+          _isLicenseValid = false;
+        });
+      }
+      return false;
+    }
   }
 
   void _showLicenseDialog(String message) {
@@ -300,9 +349,9 @@ class _GroupAttendanceSDKState extends State<GroupAttendanceSDK> with WidgetsBin
     setState(() {
       _isInitializing = true;
     });
-
+    
     viewModel.clearUserReferences();
-
+    
     for (var userRef in widget.userReferences!) {
       File imageFile = await _convertBytesToFile(userRef.imageBytes, userRef.name);
       await viewModel.addUserReferenceFromFile(userRef.name, imageFile);
@@ -323,7 +372,7 @@ class _GroupAttendanceSDKState extends State<GroupAttendanceSDK> with WidgetsBin
 
   Future<List<RecognitionResult>> _convertMatchResults(List<FaceMatchResult> matchResults) async {
     List<RecognitionResult> results = [];
-
+    
     for (var result in matchResults) {
       results.add(RecognitionResult(
         isMatched: result.isMatched,
@@ -331,7 +380,7 @@ class _GroupAttendanceSDKState extends State<GroupAttendanceSDK> with WidgetsBin
         croppedImagePath: result.croppedFace.path,
       ));
     }
-
+    
     return results;
   }
 
@@ -481,14 +530,14 @@ class _GroupAttendanceSDKState extends State<GroupAttendanceSDK> with WidgetsBin
                     ),
                   )
                       : Container(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12),
-                      color: Colors.grey.shade300,
-                    ),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          color: Colors.grey.shade300,
+                        ),
                     child: Center(
                       child: Icon(Icons.camera_alt,size: 40,color: Colors.grey,),
                     ),
-                  ),
+                      ),
                 ),
               ),
               SizedBox(height: 20),
@@ -604,9 +653,24 @@ class _GroupAttendanceSDKState extends State<GroupAttendanceSDK> with WidgetsBin
                 SizedBox(height: 20),
                 PrimaryButton(
                   onTap: () async {
+                    if (isTampered || !_isLicenseValid) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('SDK license validation failed.')),
+                      );
+                      return;
+                    }
+
                     if (viewModel.images.where((img) => img != null).isEmpty) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(content: Text('Please capture at least one image')),
+                      );
+                      return;
+                    }
+
+                    final integrityOk = await _ensureIntegrity();
+                    if (!integrityOk || isTampered) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('SDK integrity check failed.')),
                       );
                       return;
                     }
@@ -637,11 +701,21 @@ class _GroupAttendanceSDKState extends State<GroupAttendanceSDK> with WidgetsBin
                         widget.onComplete!(demoResults);
                       }
                     } else {
-                      if (viewModel.userReferences.isEmpty) {
+                        if (viewModel.userReferences.isEmpty) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(content: Text('No user references found. Please add users first.')),
                         );
                         return;
+                      }
+
+                      if (!_isLicenseValid) {
+                        await _validateLicenseOnline(showDialogOnFail: false, skipInternetCheck: false);
+                        if (!_isLicenseValid) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('License validation required. Please check your internet connection.')),
+                          );
+                          return;
+                        }
                       }
 
                       showDialog(
@@ -652,13 +726,22 @@ class _GroupAttendanceSDKState extends State<GroupAttendanceSDK> with WidgetsBin
                         ),
                       );
 
+                      final integrityCheck = await _ensureIntegrity();
+                      if (!integrityCheck || isTampered) {
+                        Navigator.pop(context);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('SDK integrity check failed during recognition.')),
+                        );
+                        return;
+                      }
+
                       await viewModel.performFaceRecognition();
 
                       Navigator.pop(context);
 
                       final results = await _convertMatchResults(viewModel.matchResults);
 
-                      if (widget.onComplete != null) {
+                      if (widget.onComplete != null && !isTampered) {
                         widget.onComplete!(results);
                       }
                     }

@@ -1,24 +1,3 @@
-# Miscellaneous
-*.class
-*.log
-*.pyc
-*.swp
-.DS_Store
-.atom/
-.buildlog/
-.history
-.svn/
-
-# IntelliJ related
-*.iml
-*.ipr
-*.iws
-.idea/
-
-# VS Code related
-.vscode/
-
-# Flutter/Dart/Pub related
 .dart_tool/
 .flutter-plugins
 .flutter-plugins-dependencies
@@ -26,23 +5,22 @@
 .pub-cache/
 .pub/
 build/
-pubspec.lock
+*.iml
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
 
-# Example app generated files
-example/.dart_tool/
-example/.flutter-plugins
-example/.flutter-plugins-dependencies
-example/.packages
-example/build/
-example/pubspec.lock
+/pubspec.lock
 
-# Documentation files
-README.md
-QUICKSTART.md
-USAGE_GUIDE.md
-ARCHITECTURE.md
-PACKAGE_STRUCTURE.md
-PRODUCTION_CHECKLIST.md
-CHANGELOG.md
-*.md
+# Android build artifacts
+android/native_core/build/
+android/native_core/local.properties
+android/native_core/.gradle/
+android/local.properties
 
+# Keep AAR file for distribution (include in repo)
+!android/libface_recognition_native/face_recognition_native.aar

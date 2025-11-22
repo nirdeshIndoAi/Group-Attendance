@@ -1,13 +1,14 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:math';
-import 'package:flutter/foundation.dart';
 import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image/image.dart' as img;
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
+
+import 'native/native_bridge.dart';
 
 class UserReference {
   final String name;
@@ -538,7 +539,6 @@ class FaceRecognitionViewModel extends ChangeNotifier {
   }
 
   Future<void> performFaceRecognition() async {
-
     matchResults.clear();
 
     if (croppedFaces.isEmpty) {
@@ -752,90 +752,13 @@ class FaceRecognitionViewModel extends ChangeNotifier {
 
   Future<Map<String, double>> _compareFaceTemplates(Uint8List template1, Uint8List template2) async {
     if (template1.length != template2.length) {
-      int minLength = template1.length < template2.length ? template1.length : template2.length;
+      final minLength = template1.length < template2.length ? template1.length : template2.length;
       template1 = Uint8List.fromList(template1.sublist(0, minLength));
       template2 = Uint8List.fromList(template2.sublist(0, minLength));
     }
 
-    double dotProduct = 0.0;
-    double norm1 = 0.0;
-    double norm2 = 0.0;
-
-    for (int i = 0; i < template1.length; i++) {
-      double val1 = template1[i].toDouble();
-      double val2 = template2[i].toDouble();
-      
-      dotProduct += val1 * val2;
-      norm1 += val1 * val1;
-      norm2 += val2 * val2;
-    }
-
-    double cosineSimilarity = 0.0;
-    if (norm1 > 0 && norm2 > 0) {
-      cosineSimilarity = dotProduct / (sqrt(norm1) * sqrt(norm2));
-    }
-
-    double euclideanDistance = 0.0;
-    for (int i = 0; i < template1.length; i++) {
-      double diff = template1[i].toDouble() - template2[i].toDouble();
-      euclideanDistance += diff * diff;
-    }
-    euclideanDistance = sqrt(euclideanDistance);
-    
-    double maxPossibleDistance = sqrt(template1.length * 255 * 255);
-    double normalizedDistance = 1.0 - (euclideanDistance / maxPossibleDistance);
-
-    int exactMatches = 0;
-    for (int i = 0; i < template1.length; i++) {
-      if ((template1[i] - template2[i]).abs() < 15) {
-        exactMatches++;
-      }
-    }
-    double exactMatchRatio = exactMatches / template1.length;
-
-    double correlationSum1 = 0.0;
-    double correlationSum2 = 0.0;
-    for (int i = 0; i < template1.length; i++) {
-      correlationSum1 += template1[i].toDouble();
-      correlationSum2 += template2[i].toDouble();
-    }
-    double mean1 = correlationSum1 / template1.length;
-    double mean2 = correlationSum2 / template2.length;
-    
-    double correlation = 0.0;
-    double std1 = 0.0;
-    double std2 = 0.0;
-    
-    for (int i = 0; i < template1.length; i++) {
-      double diff1 = template1[i] - mean1;
-      double diff2 = template2[i] - mean2;
-      correlation += diff1 * diff2;
-      std1 += diff1 * diff1;
-      std2 += diff2 * diff2;
-    }
-    
-    double pearsonCorrelation = 0.0;
-    if (std1 > 0 && std2 > 0) {
-      pearsonCorrelation = correlation / (sqrt(std1) * sqrt(std2));
-      pearsonCorrelation = (pearsonCorrelation + 1.0) / 2.0;
-    }
-
-    double finalSimilarity = (
-      cosineSimilarity * 0.40 + 
-      normalizedDistance * 0.30 + 
-      exactMatchRatio * 0.20 + 
-      pearsonCorrelation * 0.10
-    );
-
-    finalSimilarity = finalSimilarity.clamp(0.0, 1.0);
-
-    return {
-      'final': finalSimilarity,
-      'cosine': cosineSimilarity,
-      'distance': normalizedDistance,
-      'exactMatch': exactMatchRatio,
-      'correlation': pearsonCorrelation,
-    };
+    final result = await NativeSecurityBridge.compareTemplates(template1, template2);
+    return result;
   }
 
   void clearUserReferences() {
