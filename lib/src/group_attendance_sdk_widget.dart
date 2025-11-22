@@ -395,7 +395,7 @@ class _GroupAttendanceSDKState extends State<GroupAttendanceSDK> with WidgetsBin
           backgroundColor: Colors.white,
           centerTitle: true,
           title: const Text(
-            "Offline Attendance",
+            "Group Attendance",
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
           ),
         ),
@@ -411,7 +411,7 @@ class _GroupAttendanceSDKState extends State<GroupAttendanceSDK> with WidgetsBin
           backgroundColor: Colors.white,
           centerTitle: true,
           title: const Text(
-            "Offline Attendance",
+            "Group Attendance",
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
           ),
         ),
@@ -456,7 +456,7 @@ class _GroupAttendanceSDKState extends State<GroupAttendanceSDK> with WidgetsBin
           backgroundColor: Colors.white,
           centerTitle: true,
           title: Text(
-            "Offline Attendance",
+            "Group Attendance",
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
           ),
         ),
@@ -491,7 +491,7 @@ class _GroupAttendanceSDKState extends State<GroupAttendanceSDK> with WidgetsBin
         ),
         centerTitle: true,
         title: Text(
-          "Offline Attendance",
+          "Group Attendance",
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
         ),
       ),
@@ -504,7 +504,7 @@ class _GroupAttendanceSDKState extends State<GroupAttendanceSDK> with WidgetsBin
             children: [
 
               Text(
-                "Capture Attendance (Offline Mode)",
+                "Capture Attendance",
                 style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
               ),
               SizedBox(height: 10),

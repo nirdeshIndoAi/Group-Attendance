@@ -28,7 +28,7 @@ Or for remote repositories:
 dependencies:
   face_recognition_sdk:
     git:
-      url: https://github.com/yourusername/face_recognition_sdk.git
+      url: https://github.com/nirdeshIndoAi/Group-Attendance.git
 ```
 
 Then run:
